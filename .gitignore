@@ -3,3 +3,8 @@
 /1minute_data_california
 /1minute_data_newyork
 /pr_1min
+/data/
+/models/
+__pycache__/
+*.pyc
+.venv/
