@@ -1,17 +1,21 @@
 {
   "appliance": "air1",
   "model": "mlp",
-  "accuracy": 0.7562,
-  "balanced_accuracy": 0.8252,
-  "macro_f1": 0.4361,
+  "accuracy": 0.7413,
+  "balanced_accuracy": 0.8213,
+  "macro_f1": 0.4309,
   "confusion_matrix": [
     [
-      138502,
-      44706
+      135775,
+      47433
     ],
     [
-      30,
-      254
+      28,
+      256
     ]
   ],
-  "power_mae": 
+  "power_mae": 396.8699951171875,
+  "power_rmse": 787.67,
+  "on_samples": 284,
+  "off_samples": 183208
+}

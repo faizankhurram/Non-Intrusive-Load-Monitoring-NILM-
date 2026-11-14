@@ -79,3 +79,44 @@ OUTCOME:
   Fixed. Metrics now serialize correctly to JSON.
 
 ================================================================================
+
+PROBLEM #4: Pipeline too long to complete in one sitting
+--------------------------------------------------------
+WHAT HAPPENED:
+  Even after the speedup changes (Problem #2), a full pipeline run still takes
+  a significant amount of time on CPU (6 training runs total: 3 appliances x
+  2 models). The laptop could not stay powered long enough to finish, and there
+  was no way to pause and resume — a crash or shutdown meant restarting from
+  scratch.
+
+DUE TO:
+  The original pipeline had no checkpointing or resume capability. Every run
+  started fresh: re-loading data, re-creating windows, re-training all models
+  even if some had already completed.
+
+WHAT WE TRIED:
+  Implemented full pause/resume support across two files:
+
+  1. training.py — Added:
+     - Signal handler (Ctrl+C) that sets a flag to stop after current epoch
+     - save_checkpoint() / load_checkpoint() to persist model state, optimizer
+       state, epoch number, best val loss, patience counter, and history
+     - On resume, training continues from the saved epoch
+     - Checkpoint files are deleted once training completes normally
+
+  2. run_pipeline.py — Added:
+     - Skips data preparation (steps 1-5) if windowed .npz files already exist
+     - Skips any model whose metrics JSON + .pt file already exist
+     - Detects checkpoint files to resume interrupted training
+     - Catches KeyboardInterrupt and exits cleanly
+
+  How to use:
+  - Run: python run_pipeline.py
+  - To pause: press Ctrl+C once (waits for current epoch to finish, saves checkpoint)
+  - To resume: python run_pipeline.py (automatically picks up where it stopped)
+
+OUTCOME:
+  Implemented successfully. The pipeline can now survive power loss, user
+  interruption, or crash and resume without re-doing completed work.
+
+================================================================================

@@ -1,0 +1,21 @@
+{
+  "appliance": "refrigerator1",
+  "model": "mlp",
+  "accuracy": 0.5987,
+  "balanced_accuracy": 0.5,
+  "macro_f1": 0.3745,
+  "confusion_matrix": [
+    [
+      0,
+      73634
+    ],
+    [
+      0,
+      109858
+    ]
+  ],
+  "power_mae": 66.63999938964844,
+  "power_rmse": 79.82,
+  "on_samples": 109858,
+  "off_samples": 73634
+}

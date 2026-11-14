@@ -1,8 +1,10 @@
 """
 Training loop with early stopping, combined classification + regression loss.
+Supports checkpointing and resumption.
 """
 import os
 import json
+import signal
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -12,6 +14,15 @@ from src.config import (
     SEED, MODELS_DIR, CLASS_WEIGHT_FACTOR
 )
 
+# Global flag for graceful interruption
+_STOP_REQUESTED = False
+
+
+def _handle_signal(signum, frame):
+    global _STOP_REQUESTED
+    _STOP_REQUESTED = True
+    print("\n  [!] Stop requested — finishing current epoch then saving checkpoint...")
+
 
 def set_seed(seed=SEED):
     torch.manual_seed(seed)
@@ -20,11 +31,54 @@ def set_seed(seed=SEED):
         torch.cuda.manual_seed_all(seed)
 
 
+def _checkpoint_path(model_tag: str, appliance_name: str) -> str:
+    return os.path.join(MODELS_DIR, f"{model_tag}_{appliance_name}_ckpt.pt")
+
+
+def save_checkpoint(model, optimizer, epoch, best_val_loss, patience_counter,
+                    history, model_tag, appliance_name):
+    """Save a full training checkpoint for later resumption."""
+    path = _checkpoint_path(model_tag, appliance_name)
+    torch.save({
+        "epoch": epoch,
+        "model_state_dict": model.state_dict(),
+        "optimizer_state_dict": optimizer.state_dict(),
+        "best_val_loss": best_val_loss,
+        "patience_counter": patience_counter,
+        "history": history,
+    }, path)
+    print(f"  [checkpoint] Saved at epoch {epoch} -> {path}")
+
+
+def load_checkpoint(model, optimizer, model_tag, appliance_name):
+    """Load a checkpoint if one exists. Returns (start_epoch, best_val, patience, history) or None."""
+    path = _checkpoint_path(model_tag, appliance_name)
+    if not os.path.exists(path):
+        return None
+    ckpt = torch.load(path, weights_only=False)
+    model.load_state_dict(ckpt["model_state_dict"])
+    optimizer.load_state_dict(ckpt["optimizer_state_dict"])
+    print(f"  [checkpoint] Resumed from epoch {ckpt['epoch']} <- {path}")
+    return (
+        ckpt["epoch"],
+        ckpt["best_val_loss"],
+        ckpt["patience_counter"],
+        ckpt["history"],
+    )
+
+
 def train_model(model, train_ds, val_ds, appliance_name: str, model_tag: str):
     """
-    Train a model and return training history.
-    model_tag: 'mlp' or 'lstm'
+    Train a model with checkpoint/resume support.
+    Press Ctrl+C once to stop after the current epoch and save a checkpoint.
+    Re-running will resume from where it left off.
     """
+    global _STOP_REQUESTED
+    _STOP_REQUESTED = False
+
+    # Register signal handler for graceful stop
+    old_handler = signal.signal(signal.SIGINT, _handle_signal)
+
     set_seed()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
@@ -47,10 +101,23 @@ def train_model(model, train_ds, val_ds, appliance_name: str, model_tag: str):
     best_val_loss = float("inf")
     patience_counter = 0
     history = {"train_loss": [], "val_loss": [], "train_cls": [], "val_cls": []}
+    start_epoch = 1
 
     save_path = os.path.join(MODELS_DIR, f"{model_tag}_{appliance_name}.pt")
 
-    for epoch in range(1, EPOCHS + 1):
+    # Try to resume from checkpoint
+    ckpt = load_checkpoint(model, optimizer, model_tag, appliance_name)
+    if ckpt is not None:
+        start_epoch = ckpt[0] + 1
+        best_val_loss = ckpt[1]
+        patience_counter = ckpt[2]
+        history = ckpt[3]
+        if start_epoch > EPOCHS:
+            print(f"  Already completed all {EPOCHS} epochs.")
+            signal.signal(signal.SIGINT, old_handler)
+            return model, history
+
+    for epoch in range(start_epoch, EPOCHS + 1):
         # ---- Training ----
         model.train()
         epoch_loss, epoch_cls = 0.0, 0.0
@@ -105,7 +172,7 @@ def train_model(model, train_ds, val_ds, appliance_name: str, model_tag: str):
         print(f"  Epoch {epoch:02d}/{EPOCHS}  "
               f"train_loss={avg_train_loss:.4f}  val_loss={avg_val_loss:.4f}")
 
-        # Early stopping
+        # Save best model
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
             patience_counter = 0
@@ -116,13 +183,28 @@ def train_model(model, train_ds, val_ds, appliance_name: str, model_tag: str):
                 print(f"  Early stopping at epoch {epoch}")
                 break
 
-    # Load best model
-    model.load_state_dict(torch.load(save_path, weights_only=True))
+        # Check if stop was requested (Ctrl+C)
+        if _STOP_REQUESTED:
+            save_checkpoint(model, optimizer, epoch, best_val_loss,
+                            patience_counter, history, model_tag, appliance_name)
+            print(f"  Training paused at epoch {epoch}. Resume with: python run_pipeline.py")
+            signal.signal(signal.SIGINT, old_handler)
+            raise KeyboardInterrupt("Training paused by user")
+
+    # Training complete — load best model and clean up checkpoint
+    if os.path.exists(save_path):
+        model.load_state_dict(torch.load(save_path, weights_only=True))
     print(f"  Best model saved to {save_path}")
+
+    # Remove checkpoint since training finished
+    ckpt_path = _checkpoint_path(model_tag, appliance_name)
+    if os.path.exists(ckpt_path):
+        os.remove(ckpt_path)
 
     # Save history
     hist_path = os.path.join(MODELS_DIR, f"{model_tag}_{appliance_name}_history.json")
     with open(hist_path, "w") as f:
         json.dump(history, f)
 
+    signal.signal(signal.SIGINT, old_handler)
     return model, history
