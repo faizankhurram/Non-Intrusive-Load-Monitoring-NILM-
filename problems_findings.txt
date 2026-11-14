@@ -1,0 +1,59 @@
+This document consists of all the documented problems/limitations/obstacles that we encountered during the construction, testing and improvement of our project. Moreover, for each obstacle, we describe as to what it was, due to what it occurred and what thing we tried to implement, and the outcome of that new thing we tried (did it work, or not, and if not, where did we go next).
+
+================================================================================
+
+PROBLEM #1: NumPy version incompatibility with PyTorch
+------------------------------------------------------
+WHAT HAPPENED:
+  Running `python run_pipeline.py` crashed with:
+    RuntimeError: Numpy is not available
+  and a warning: "A module that was compiled using NumPy 1.x cannot be run in
+  NumPy 2.5.4"
+
+DUE TO:
+  PyTorch 2.2.0 (installed on the system) was built against NumPy 1.x. The
+  project initially had numpy>=2.0 in requirements.txt, and pip had upgraded
+  numpy to 2.5.4 which broke the torch <-> numpy C-level ABI. Tensor .numpy()
+  calls failed entirely.
+
+WHAT WE TRIED:
+  Downgraded numpy to 1.26.4 (latest 1.x) and pandas to 2.3.3 (compatible
+  with numpy 1.x). Pinned requirements.txt to "numpy>=1.26,<2.0" and
+  "pandas>=2.0,<3.0".
+
+OUTCOME:
+  Fixed. torch.tensor.numpy() works correctly. Pipeline proceeds past the
+  crash point.
+
+================================================================================
+
+PROBLEM #2: Extremely long training time (~5-6 hours estimated)
+---------------------------------------------------------------
+WHAT HAPPENED:
+  The pipeline successfully loaded data (3.14M rows), created 1.83M training
+  windows, and started MLP training for the first appliance (air1). Each epoch
+  was taking very long due to the massive dataset size on CPU. Estimated total
+  runtime for all 3 appliances x 2 models x 50 epochs was 5-6 hours.
+
+DUE TO:
+  - 6 homes produced ~1.83M overlapping training windows (step=1, every minute).
+  - Batch size of 256 meant ~7,150 batches per epoch.
+  - 50 max epochs with patience of 7 = many epochs before early stop.
+  - LSTM with 2 layers is slow on CPU.
+  - All of this multiplied by 3 appliances x 2 models = 6 full training runs.
+
+WHAT WE TRIED:
+  Multiple config changes to reduce total computation:
+  1. Reduced homes from 6 to 5 (minimum required by CCP).
+  2. Added WINDOW_STEP=5 (sample every 5th window instead of every overlapping
+     minute) — cuts training windows by ~5x, from ~1.83M to ~300K.
+  3. Increased BATCH_SIZE from 256 to 1024 (fewer optimizer steps per epoch).
+  4. Reduced EPOCHS from 50 to 20.
+  5. Reduced PATIENCE from 7 to 4 (earlier stopping).
+  6. Reduced LSTM_LAYERS from 2 to 1 (faster LSTM forward pass).
+  Cleared cached data so the pipeline regenerates with new settings.
+
+OUTCOME:
+  Pending — awaiting next pipeline run to confirm speedup.
+
+================================================================================
