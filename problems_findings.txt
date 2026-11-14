@@ -54,6 +54,28 @@ WHAT WE TRIED:
   Cleared cached data so the pipeline regenerates with new settings.
 
 OUTCOME:
-  Pending — awaiting next pipeline run to confirm speedup.
+  Confirmed working — training windows dropped from ~1.83M to ~366K. Epochs
+  capped at 20. Pipeline reached evaluation stage successfully.
+
+================================================================================
+
+PROBLEM #3: JSON serialization crash on numpy float32
+-----------------------------------------------------
+WHAT HAPPENED:
+  After MLP training and evaluation for air1 completed, the pipeline crashed at
+  json.dump() with:
+    TypeError: Object of type float32 is not JSON serializable
+
+DUE TO:
+  sklearn metrics (accuracy_score, etc.) return numpy float32 values. Python's
+  round() preserves the numpy dtype, so round(acc, 4) returns a numpy.float32
+  which json.dump cannot serialize natively.
+
+WHAT WE TRIED:
+  Wrapped every metric value with float() in evaluate.py to cast numpy scalars
+  to native Python floats before JSON serialization.
+
+OUTCOME:
+  Fixed. Metrics now serialize correctly to JSON.
 
 ================================================================================

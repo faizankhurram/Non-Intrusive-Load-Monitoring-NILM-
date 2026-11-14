@@ -49,12 +49,12 @@ def evaluate_model(model, test_ds, appliance_name: str, model_tag: str) -> dict:
     metrics = {
         "appliance": appliance_name,
         "model": model_tag,
-        "accuracy": round(acc, 4),
-        "balanced_accuracy": round(bal_acc, 4),
-        "macro_f1": round(macro_f1, 4),
+        "accuracy": float(round(acc, 4)),
+        "balanced_accuracy": float(round(bal_acc, 4)),
+        "macro_f1": float(round(macro_f1, 4)),
         "confusion_matrix": cm.tolist(),
-        "power_mae": round(mae, 2),
-        "power_rmse": round(rmse, 2),
+        "power_mae": float(round(mae, 2)),
+        "power_rmse": float(round(rmse, 2)),
         "on_samples": int(cls_true.sum()),
         "off_samples": int((cls_true == 0).sum()),
     }
