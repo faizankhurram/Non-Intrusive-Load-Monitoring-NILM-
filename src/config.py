@@ -40,6 +40,7 @@ UNSEEN_HOME = 4031
 # ---------------------------------------------------------------------------
 MAX_GAP_FILL = 5          # forward-fill gaps up to this many minutes
 WINDOW_SIZE = 60           # number of 1-minute timesteps per input window
+WINDOW_STEP = 5            # stride between windows (1 = full overlap, 5 = every 5th)
 
 # ---------------------------------------------------------------------------
 # ON/OFF thresholds (watts) – set from training-data analysis
@@ -62,10 +63,10 @@ TEST_RATIO = 0.15
 # Training hyperparameters
 # ---------------------------------------------------------------------------
 SEED = 42
-BATCH_SIZE = 256
+BATCH_SIZE = 1024
 LEARNING_RATE = 1e-3
-EPOCHS = 50
-PATIENCE = 7              # early-stopping patience
+EPOCHS = 20
+PATIENCE = 4              # early-stopping patience
 CLASS_WEIGHT_FACTOR = 2.0  # weight for minority (ON) class in BCE loss
 
 # ---------------------------------------------------------------------------
@@ -73,5 +74,5 @@ CLASS_WEIGHT_FACTOR = 2.0  # weight for minority (ON) class in BCE loss
 # ---------------------------------------------------------------------------
 MLP_HIDDEN = [128, 64]
 LSTM_HIDDEN = 64
-LSTM_LAYERS = 2
+LSTM_LAYERS = 1
 DROPOUT = 0.3
