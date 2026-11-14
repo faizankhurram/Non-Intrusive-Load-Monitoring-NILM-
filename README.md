@@ -3,9 +3,6 @@
 ANN-based system that uses whole-house smart meter readings to predict individual
 appliance ON/OFF states and power consumption.
 
-## Course
-Artificial Neural Networks (CT-466) — Complex Computing Problem
-
 ## Dataset
 Pecan Street Dataport — Austin, Texas 1-minute interval data.
 
