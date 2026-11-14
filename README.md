@@ -43,9 +43,9 @@ windowing, training (MLP + LSTM for 3 appliances), evaluation, and plot generati
 │       ├── mlp.py           # Baseline MLP architecture
 │       └── lstm_model.py    # Advanced LSTM architecture
 ├── run_pipeline.py          # End-to-end pipeline runner
+├── report.md                # Project report
 ├── requirements.txt         # Python dependencies
 └── results/                 # Generated metrics, plots (after running)
-└── README.md
 ```
 
 ## Results

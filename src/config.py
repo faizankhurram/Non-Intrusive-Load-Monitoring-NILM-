@@ -24,7 +24,7 @@ for d in [PROCESSED_DIR, WINDOWS_DIR, MODELS_DIR, RESULTS_DIR]:
 REGION = "Austin"
 
 # Homes with the richest sub-metered coverage (from exploration)
-SELECTED_HOMES = [1642, 2818, 2361, 3456, 4031]
+SELECTED_HOMES = [1642, 2818, 2361, 3456, 4767, 4031]
 
 # Three target appliances
 TARGET_APPLIANCES = ["air1", "refrigerator1", "dishwasher1"]
@@ -40,7 +40,6 @@ UNSEEN_HOME = 4031
 # ---------------------------------------------------------------------------
 MAX_GAP_FILL = 5          # forward-fill gaps up to this many minutes
 WINDOW_SIZE = 60           # number of 1-minute timesteps per input window
-WINDOW_STEP = 5            # stride between windows (1 = full overlap, 5 = every 5th)
 
 # ---------------------------------------------------------------------------
 # ON/OFF thresholds (watts) – set from training-data analysis
@@ -63,10 +62,10 @@ TEST_RATIO = 0.15
 # Training hyperparameters
 # ---------------------------------------------------------------------------
 SEED = 42
-BATCH_SIZE = 1024
+BATCH_SIZE = 256
 LEARNING_RATE = 1e-3
-EPOCHS = 20
-PATIENCE = 4              # early-stopping patience
+EPOCHS = 50
+PATIENCE = 7              # early-stopping patience
 CLASS_WEIGHT_FACTOR = 2.0  # weight for minority (ON) class in BCE loss
 
 # ---------------------------------------------------------------------------
@@ -74,5 +73,5 @@ CLASS_WEIGHT_FACTOR = 2.0  # weight for minority (ON) class in BCE loss
 # ---------------------------------------------------------------------------
 MLP_HIDDEN = [128, 64]
 LSTM_HIDDEN = 64
-LSTM_LAYERS = 1
+LSTM_LAYERS = 2
 DROPOUT = 0.3

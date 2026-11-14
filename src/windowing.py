@@ -7,7 +7,7 @@ Windows do NOT cross home boundaries.
 import numpy as np
 import pandas as pd
 import os
-from src.config import WINDOW_SIZE, WINDOW_STEP, TARGET_APPLIANCES, WINDOWS_DIR
+from src.config import WINDOW_SIZE, TARGET_APPLIANCES, WINDOWS_DIR
 
 
 def create_windows(df: pd.DataFrame, split_name: str) -> dict:
@@ -32,7 +32,7 @@ def create_windows(df: pd.DataFrame, split_name: str) -> dict:
         if n < WINDOW_SIZE:
             continue
 
-        for i in range(WINDOW_SIZE, n, WINDOW_STEP):
+        for i in range(WINDOW_SIZE, n):
             window = grid_vals[i - WINDOW_SIZE: i]
             all_X.append(window)
             all_y_class.append(labels[i])
