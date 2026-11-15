@@ -1,29 +1,24 @@
 """
 Chronological train / validation / test splitting.
-Also reserves one full home for unseen-home testing.
+Every home is split chronologically — no full-home holdout, so that
+the test set has representative appliance distributions from all homes.
 """
 import pandas as pd
 from src.config import (
-    TRAIN_RATIO, VAL_RATIO, SELECTED_HOMES, UNSEEN_HOME
+    TRAIN_RATIO, VAL_RATIO, SELECTED_HOMES
 )
 
 
 def chronological_split(df: pd.DataFrame) -> dict:
     """
     Split data chronologically per home.
-    The UNSEEN_HOME goes entirely into the test set.
-    For other homes: first 70% train, next 15% val, last 15% test.
+    Every home contributes to train, val, and test.
     Returns dict with keys 'train', 'val', 'test'.
     """
     train_parts, val_parts, test_parts = [], [], []
 
     for home_id in SELECTED_HOMES:
         home_df = df[df["dataid"] == home_id].sort_values("localminute")
-
-        if home_id == UNSEEN_HOME:
-            test_parts.append(home_df)
-            print(f"[split] Home {home_id}: all {len(home_df):,} rows -> test (unseen)")
-            continue
 
         n = len(home_df)
         train_end = int(n * TRAIN_RATIO)

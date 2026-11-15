@@ -1,5 +1,5 @@
 """
-Advanced LSTM model for NILM.
+Advanced LSTM model for NILM with LayerNorm on the output.
 Input: sequence of whole-house power (WINDOW_SIZE, 1)
 Output: ON/OFF probability + predicted appliance power
 """
@@ -18,6 +18,7 @@ class NILM_LSTM(nn.Module):
             batch_first=True,
             dropout=DROPOUT if LSTM_LAYERS > 1 else 0.0,
         )
+        self.layer_norm = nn.LayerNorm(LSTM_HIDDEN)
         self.dropout = nn.Dropout(DROPOUT)
 
         # Classification head
@@ -38,8 +39,9 @@ class NILM_LSTM(nn.Module):
     def forward(self, x):
         # x: (batch, WINDOW_SIZE) -> reshape to (batch, WINDOW_SIZE, 1)
         x = x.unsqueeze(-1)
-        lstm_out, _ = self.lstm(x)          # (batch, seq, hidden)
-        last_hidden = lstm_out[:, -1, :]    # (batch, hidden)
+        lstm_out, _ = self.lstm(x)
+        last_hidden = lstm_out[:, -1, :]
+        last_hidden = self.layer_norm(last_hidden)
         last_hidden = self.dropout(last_hidden)
 
         cls_out = self.cls_head(last_hidden).squeeze(-1)
