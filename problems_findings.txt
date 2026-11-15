@@ -206,6 +206,107 @@ IMPROVEMENT ROUND #1 — Changes Implemented
      and regression, giving more capacity to map features to outputs.
 
 OUTCOME:
-  Pending — all old data/models/results cleared for a fresh pipeline run.
+  Completed — ran fresh pipeline, results analyzed in next section.
+
+================================================================================
+
+SECOND COMPLETE RUN — RESULTS ANALYSIS (after Improvement Round #1)
+--------------------------------------------------------------------
+Results from the second pipeline run:
+
+  Model  Appliance       Acc    BalAcc  MacF1   MAE(W)  RMSE(W)
+  MLP    air1           0.8192  0.8722  0.4650  246.01  497.96
+  LSTM   air1           0.8967  0.8846  0.4968  172.72  461.83
+  MLP    refrigerator1  0.6747  0.6648  0.6532   56.00   72.11
+  LSTM   refrigerator1  0.7445  0.6489  0.6575   52.21   70.60
+  MLP    dishwasher1    0.1970  0.5013  0.1688   30.92  117.82
+  LSTM   dishwasher1    0.2491  0.5244  0.2376   30.53  117.29
+
+Comparison vs Run 1:
+  - air1: HUGE improvement. LSTM Acc 0.79->0.90, BalAcc 0.85->0.88.
+    However Macro-F1 still only 0.50 because ON class has only 282
+    samples in test (0.3%). The model catches 246/282 ON (87% recall)
+    but precision is 246/(246+9688) = 2.5%, killing F1.
+    Power MAE improved from 394->173W.
+
+  - refrigerator1: Major fix. From predicting ALL-ON (F1=0.37) to
+    actual discrimination (F1=0.66). LSTM Acc 0.60->0.74.
+    Confusion: [[11323,20256],[3797,58774]] — ON recall 94%, OFF 36%.
+    Still biased toward ON but much better than before.
+
+  - dishwasher1: GOT WORSE. MLP Acc 0.45->0.20. Confusion shows model
+    predicts almost everything as ON: [[594,75505],[94,17957]].
+    The focal loss with pos_weight=8.59 was too aggressive, causing
+    model collapse to all-ON prediction.
+
+ROOT CAUSE ANALYSIS of remaining failures:
+
+  1. DISHWASHER: Fundamentally problematic appliance. Power distribution:
+     43% zero, 37% at 1-10W (standby), only 2% above 50W. The actual
+     ON-cycle power is very weak and rare. A 20W threshold labels mostly
+     standby noise as "ON", creating unreliable labels. No model can
+     learn from noisy labels with a tiny true-ON percentage.
+
+  2. AIR1 MACRO-F1: The metric is dragged down by the ON class having
+     ultra-low precision (2.5%) despite high recall (87%). With only
+     282 ON samples in 94K test, even 9K false positives destroy F1.
+     The threshold of 200W may be too low — many readings in 200-500W
+     range could be partial-cycle noise.
+
+  3. REFRIGERATOR OFF-RECALL: The model over-predicts ON (64% of true-
+     OFF samples predicted as ON). The 30W threshold sits in a noisy
+     transition zone between standby (1-50W) and compressor (50-200W).
+
+  4. POS_WEIGHT TOO HIGH: For dishwasher (97.3% OFF in train), the
+     raw ratio * 2.0 = ~72, capped at 20 but still catastrophic.
+     sqrt-based weighting needed.
+
+================================================================================
+
+IMPROVEMENT ROUND #2 — Changes Implemented
+-------------------------------------------
+
+  1. REPLACED DISHWASHER WITH FURNACE (config.py):
+     Dishwasher has noisy, low-power signals unusable for NILM.
+     Furnace (furnace1) has a clean bimodal distribution:
+       - Idle/fan: 1-50W (76% of readings)
+       - Heating active: 200W+ (24% of readings)
+     This gives ~24% ON at 200W threshold — near-ideal class balance.
+
+  2. REFINED ALL THRESHOLDS (config.py):
+       - air1: 200W -> 300W (sits in clear gap between <50W and 500W+)
+       - refrigerator1: 30W -> 50W (cleaner compressor-on separation)
+       - furnace1: 200W (new, separates idle fan from active heating)
+
+  3. SQRT-BASED CLASS WEIGHTING (training.py):
+     Changed from pos_weight = (n_off/n_on) * factor to:
+       pos_weight = sqrt(n_off/n_on) * factor, capped at 5.0
+     This prevents extreme weights that cause model collapse.
+     Example: old dishwasher weight was ~72 (capped 20), now furnace
+     with 76/24 ratio gets sqrt(3.17)*1 = 1.78 — very reasonable.
+
+  4. STATISTICAL FEATURES (dataset.py):
+     Each window now has 5 appended features: mean, std, max, min,
+     and slope (first-to-last gradient). This gives the model summary
+     statistics about the window shape, helping distinguish between
+     different aggregate power profiles. Total input: 60+5 = 65 dims.
+
+  5. INCREASED MODEL CAPACITY (config.py):
+     - MLP: [128,64] -> [256,128,64] (3 layers, more parameters)
+     - LSTM: hidden 64 -> 128 (doubles recurrent capacity)
+     - LSTM head: 32 -> 64 neurons (more capacity in output heads)
+     Both models can now capture more complex patterns.
+
+  6. LSTM ARCHITECTURE (lstm_model.py):
+     Statistical features are now concatenated with the LSTM's last
+     hidden state BEFORE the classification/regression heads, giving
+     the heads both temporal and statistical information.
+
+  7. REDUCED CLASS_WEIGHT_FACTOR (config.py):
+     2.0 -> 1.0. Combined with sqrt-based weighting and focal loss,
+     this prevents over-correction for minority class.
+
+OUTCOME:
+  Pending — cleared all cached data for fresh pipeline run with furnace1.
 
 ================================================================================

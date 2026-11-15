@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 from src.config import (
     BATCH_SIZE, LEARNING_RATE, EPOCHS, PATIENCE,
-    SEED, MODELS_DIR, CLASS_WEIGHT_FACTOR
+    SEED, MODELS_DIR, CLASS_WEIGHT_FACTOR, MAX_POS_WEIGHT
 )
 
 # Global flag for graceful interruption
@@ -112,14 +112,15 @@ def train_model(model, train_ds, val_ds, appliance_name: str, model_tag: str):
     val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, shuffle=False,
                             num_workers=0, pin_memory=False)
 
-    # Compute class weight for the ON class
+    # Compute class weight — use sqrt of ratio to prevent collapse
     labels = train_ds.y_class.numpy()
     n_on = labels.sum()
     n_off = len(labels) - n_on
-    pos_weight_val = min(n_off / max(n_on, 1) * CLASS_WEIGHT_FACTOR, 20.0)
+    raw_ratio = n_off / max(n_on, 1)
+    pos_weight_val = min(np.sqrt(raw_ratio) * CLASS_WEIGHT_FACTOR, MAX_POS_WEIGHT)
     pos_weight = torch.tensor([pos_weight_val], device=device)
     print(f"  Class balance: ON={int(n_on):,} OFF={int(n_off):,} "
-          f"pos_weight={pos_weight_val:.2f}")
+          f"ratio={raw_ratio:.2f} pos_weight={pos_weight_val:.2f}")
 
     focal_loss_fn = FocalLoss(alpha=1.0, gamma=2.0)
     mse_loss_fn = nn.MSELoss()

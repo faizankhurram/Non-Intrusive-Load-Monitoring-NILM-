@@ -1,8 +1,6 @@
 """
 Create ON/OFF labels for each appliance using thresholds derived
-from the training split only.
-Uses a robust method: find the valley between the two modes of the
-power distribution histogram.
+from domain knowledge and validated against training data.
 """
 import numpy as np
 import pandas as pd
@@ -11,29 +9,20 @@ from src.config import TARGET_APPLIANCES, DEFAULT_THRESHOLDS
 
 def compute_thresholds(train_df: pd.DataFrame) -> dict:
     """
-    Compute ON/OFF power thresholds from training data.
-    Strategy: use fixed domain-knowledge thresholds that are known to
-    separate ON/OFF states reliably for each appliance type.
+    Return ON/OFF thresholds (watts) for each appliance.
+    Uses fixed domain-knowledge thresholds tuned to the bimodal power
+    distributions observed in the Pecan Street Austin data.
     """
-    # These are well-established NILM thresholds from literature
-    # and validated against the Pecan Street data distributions.
-    thresholds = {
-        "air1": 200.0,          # HVAC draws >200W when compressor is running
-        "refrigerator1": 30.0,  # Fridge compressor cycles above ~30W
-        "dishwasher1": 20.0,    # Dishwasher draws >20W during any cycle phase
-    }
+    thresholds = dict(DEFAULT_THRESHOLDS)
 
-    # Validate against training data and print distribution info
     for appliance in TARGET_APPLIANCES:
         values = train_df[appliance].dropna().values
-        t = thresholds.get(appliance, DEFAULT_THRESHOLDS.get(appliance, 10.0))
+        t = thresholds.get(appliance, 10.0)
         n_on = (values >= t).sum()
         n_off = (values < t).sum()
         ratio = n_on / max(n_on + n_off, 1) * 100
         print(f"  [threshold] {appliance}: {t}W -> "
               f"ON={n_on:,} ({ratio:.1f}%), OFF={n_off:,} ({100-ratio:.1f}%)")
-
-        # Warn if extremely imbalanced
         if ratio < 5 or ratio > 95:
             print(f"    WARNING: severe imbalance for {appliance}")
 
