@@ -12,7 +12,7 @@ from sklearn.metrics import (
     accuracy_score, balanced_accuracy_score, f1_score,
     confusion_matrix, mean_absolute_error, mean_squared_error,
 )
-from src.config import BATCH_SIZE, RESULTS_DIR
+from src.config import BATCH_SIZE, RESULTS_DIR, DATA_SIGNATURE
 
 
 def evaluate_model(model, test_ds, appliance_name: str, model_tag: str) -> dict:
@@ -27,8 +27,8 @@ def evaluate_model(model, test_ds, appliance_name: str, model_tag: str) -> dict:
     with torch.no_grad():
         for X, y_cls, y_pow in loader:
             X = X.to(device)
-            cls_pred, reg_pred = model(X)
-            all_cls_pred.append(cls_pred.cpu().numpy())
+            cls_logit, reg_pred = model(X)
+            all_cls_pred.append(torch.sigmoid(cls_logit).cpu().numpy())
             all_cls_true.append(y_cls.numpy())
             all_pow_pred.append(reg_pred.cpu().numpy())
             all_pow_true.append(y_pow.numpy())
@@ -36,8 +36,9 @@ def evaluate_model(model, test_ds, appliance_name: str, model_tag: str) -> dict:
     cls_pred_prob = np.concatenate(all_cls_pred)
     cls_true = np.concatenate(all_cls_true).astype(int)
     cls_pred = (cls_pred_prob >= 0.5).astype(int)
-    pow_pred = np.concatenate(all_pow_pred)
-    pow_true = np.concatenate(all_pow_true)
+    # Regression targets are normalized by the training power scale; back to watts
+    pow_pred = np.clip(np.concatenate(all_pow_pred) * test_ds.power_scale, 0, None)
+    pow_true = np.concatenate(all_pow_true) * test_ds.power_scale
 
     acc = accuracy_score(cls_true, cls_pred)
     bal_acc = balanced_accuracy_score(cls_true, cls_pred)
@@ -49,6 +50,7 @@ def evaluate_model(model, test_ds, appliance_name: str, model_tag: str) -> dict:
     metrics = {
         "appliance": appliance_name,
         "model": model_tag,
+        "data_signature": DATA_SIGNATURE,
         "accuracy": float(round(acc, 4)),
         "balanced_accuracy": float(round(bal_acc, 4)),
         "macro_f1": float(round(macro_f1, 4)),

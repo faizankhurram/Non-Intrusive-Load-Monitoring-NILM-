@@ -12,7 +12,10 @@ import json
 # Ensure project root is on path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.config import TARGET_APPLIANCES, SEED, MODELS_DIR, RESULTS_DIR, WINDOWS_DIR
+from src.config import (
+    TARGET_APPLIANCES, SEED, MODELS_DIR, RESULTS_DIR, WINDOWS_DIR,
+    MODEL_TAGS, DATA_SIGNATURE,
+)
 from src.data_loader import load_and_filter, save_filtered, load_filtered
 from src.data_cleaning import clean, save_cleaned, load_cleaned
 from src.labeling import compute_thresholds, apply_labels, print_label_stats
@@ -21,16 +24,29 @@ from src.windowing import create_windows, save_windows, load_windows
 from src.dataset import build_datasets
 from src.models.mlp import NILM_MLP
 from src.models.lstm_model import NILM_LSTM
+from src.models.gru_model import NILM_GRU
+from src.models.transformer_model import NILM_Transformer
 from src.training import train_model
 from src.evaluate import evaluate_model
 from src.visualization import generate_all_plots
 
+MODEL_CLASSES = {
+    "mlp": NILM_MLP,
+    "lstm": NILM_LSTM,
+    "gru": NILM_GRU,
+    "transformer": NILM_Transformer,
+}
+SIGNATURE_PATH = os.path.join(WINDOWS_DIR, "signature.txt")
+
 
 def _model_done(model_tag: str, appliance: str) -> bool:
-    """Check if a model has already been fully trained and evaluated."""
+    """Check if a model has been fully trained and evaluated on the current data."""
     metrics_path = os.path.join(RESULTS_DIR, f"{model_tag}_{appliance}_metrics.json")
     model_path = os.path.join(MODELS_DIR, f"{model_tag}_{appliance}.pt")
-    return os.path.exists(metrics_path) and os.path.exists(model_path)
+    if not (os.path.exists(metrics_path) and os.path.exists(model_path)):
+        return False
+    with open(metrics_path) as f:
+        return json.load(f).get("data_signature") == DATA_SIGNATURE
 
 
 def _has_checkpoint(model_tag: str, appliance: str) -> bool:
@@ -39,11 +55,22 @@ def _has_checkpoint(model_tag: str, appliance: str) -> bool:
 
 
 def _windows_exist() -> bool:
-    """Check if windowed data already exists."""
-    return all(
-        os.path.exists(os.path.join(WINDOWS_DIR, f"{s}.npz"))
-        for s in ["train", "val", "test"]
-    )
+    """Check if windowed data for the current configuration already exists."""
+    if not all(os.path.exists(os.path.join(WINDOWS_DIR, f"{s}.npz"))
+               for s in ["train", "val", "test"]):
+        return False
+    if not os.path.exists(SIGNATURE_PATH):
+        return False
+    with open(SIGNATURE_PATH) as f:
+        return f.read().strip() == DATA_SIGNATURE
+
+
+def _clear_stale_checkpoints():
+    """Checkpoints from a different data configuration cannot be resumed."""
+    for name in os.listdir(MODELS_DIR):
+        if name.endswith("_ckpt.pt"):
+            os.remove(os.path.join(MODELS_DIR, name))
+            print(f"  [rebuild] Removed stale checkpoint {name}")
 
 
 def main():
@@ -55,6 +82,7 @@ def main():
     if _windows_exist():
         print("\n[resume] Windowed data found — skipping data preparation steps 1-5")
     else:
+        _clear_stale_checkpoints()
         print("\n--- Step 1: Loading raw data ---")
         df = load_and_filter()
         save_filtered(df)
@@ -77,6 +105,8 @@ def main():
         for name in ["train", "val", "test"]:
             windows = create_windows(splits[name], name)
             save_windows(windows, name)
+        with open(SIGNATURE_PATH, "w") as f:
+            f.write(DATA_SIGNATURE)
 
     # Step 6: Train and evaluate models for each appliance
     all_metrics = []
@@ -89,7 +119,8 @@ def main():
 
         train_ds, val_ds, test_ds, scaler = build_datasets(idx)
 
-        for model_tag, ModelClass in [("mlp", NILM_MLP), ("lstm", NILM_LSTM)]:
+        for model_tag in MODEL_TAGS:
+            ModelClass = MODEL_CLASSES[model_tag]
             tag_upper = model_tag.upper()
 
             if _model_done(model_tag, appliance):
@@ -128,13 +159,17 @@ def main():
     print("\n" + "=" * 80)
     print("BENCHMARK RESULTS SUMMARY")
     print("=" * 80)
-    print(f"{'Model':<8} {'Appliance':<16} {'Acc':>8} {'Bal Acc':>8} "
-          f"{'F1':>8} {'MAE':>8} {'RMSE':>8}")
+    print(f"{'Model':<12} {'Appliance':<16} {'Acc':>8} {'Bal Acc':>8} "
+          f"{'F1':>8} {'MAE':>8} {'RMSE':>8}  Benchmark")
     print("-" * 80)
     for m in all_metrics:
-        print(f"{m['model']:<8} {m['appliance']:<16} {m['accuracy']:>8.4f} "
+        passed = (m["accuracy"] >= 0.85 and m["balanced_accuracy"] >= 0.75
+                  and m["macro_f1"] >= 0.70)
+        print(f"{m['model']:<12} {m['appliance']:<16} {m['accuracy']:>8.4f} "
               f"{m['balanced_accuracy']:>8.4f} {m['macro_f1']:>8.4f} "
-              f"{m['power_mae']:>8.2f} {m['power_rmse']:>8.2f}")
+              f"{m['power_mae']:>8.2f} {m['power_rmse']:>8.2f}  "
+              f"{'PASS' if passed else 'FAIL'}")
+    print("Benchmark = Acc>=0.85, BalAcc>=0.75, Macro-F1>=0.70 (CCP minimum)")
 
     print("\nPipeline complete.")
 

@@ -12,7 +12,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
-from src.config import RESULTS_DIR, MODELS_DIR, TARGET_APPLIANCES
+from src.config import RESULTS_DIR, MODELS_DIR, TARGET_APPLIANCES, MODEL_TAGS
 
 
 def plot_confusion_matrix(appliance: str, model_tag: str):
@@ -65,53 +65,56 @@ def plot_training_curves(appliance: str, model_tag: str):
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Loss")
     ax.set_title(f"{model_tag.upper()} - {appliance} Training Curves")
-    ax.legend()
+    if "val_f1" in history:
+        ax2 = ax.twinx()
+        ax2.plot(epochs, history["val_f1"], color="tab:green", linestyle="--",
+                 label="Val Macro-F1")
+        ax2.set_ylabel("Val Macro-F1")
+        ax2.set_ylim(0, 1)
+        lines = ax.get_legend_handles_labels()
+        lines2 = ax2.get_legend_handles_labels()
+        ax.legend(lines[0] + lines2[0], lines[1] + lines2[1], loc="center right")
+    else:
+        ax.legend()
     fig.tight_layout()
     fig.savefig(os.path.join(RESULTS_DIR, f"{model_tag}_{appliance}_curves.png"), dpi=150)
     plt.close(fig)
 
 
 def plot_model_comparison():
-    """Bar chart comparing MLP vs LSTM across all appliances and metrics."""
-    metrics_data = []
-    for tag in ["mlp", "lstm"]:
+    """Bar chart comparing all models across all appliances and metrics."""
+    metrics = {}
+    for tag in MODEL_TAGS:
         for appliance in TARGET_APPLIANCES:
             path = os.path.join(RESULTS_DIR, f"{tag}_{appliance}_metrics.json")
             if os.path.exists(path):
                 with open(path) as f:
-                    metrics_data.append(json.load(f))
+                    metrics[(tag, appliance)] = json.load(f)
 
-    if not metrics_data:
+    if not metrics:
         print("[viz] No metrics found to compare.")
         return
 
     metric_names = ["accuracy", "balanced_accuracy", "macro_f1"]
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    minimums = {"accuracy": 0.85, "balanced_accuracy": 0.75, "macro_f1": 0.70}
+    fig, axes = plt.subplots(1, 3, figsize=(16, 5))
+    x = np.arange(len(TARGET_APPLIANCES))
+    width = 0.8 / len(MODEL_TAGS)
 
     for ax, metric in zip(axes, metric_names):
-        mlp_vals, lstm_vals = [], []
-        labels = []
-        for appliance in TARGET_APPLIANCES:
-            for m in metrics_data:
-                if m["appliance"] == appliance and m["model"] == "mlp":
-                    mlp_vals.append(m[metric])
-                if m["appliance"] == appliance and m["model"] == "lstm":
-                    lstm_vals.append(m[metric])
-            labels.append(appliance)
-
-        x = np.arange(len(labels))
-        width = 0.35
-        if mlp_vals:
-            ax.bar(x - width/2, mlp_vals, width, label="MLP")
-        if lstm_vals:
-            ax.bar(x + width/2, lstm_vals, width, label="LSTM")
+        for i, tag in enumerate(MODEL_TAGS):
+            vals = [metrics.get((tag, a), {}).get(metric, 0.0) for a in TARGET_APPLIANCES]
+            offset = (i - (len(MODEL_TAGS) - 1) / 2) * width
+            ax.bar(x + offset, vals, width, label=tag.upper())
+        ax.axhline(minimums[metric], color="red", linestyle="--", linewidth=1,
+                   label="CCP minimum")
         ax.set_ylabel(metric.replace("_", " ").title())
         ax.set_xticks(x)
-        ax.set_xticklabels(labels, rotation=15)
-        ax.legend()
+        ax.set_xticklabels(TARGET_APPLIANCES, rotation=15)
+        ax.legend(fontsize=8)
         ax.set_ylim(0, 1.05)
 
-    fig.suptitle("MLP vs LSTM Comparison")
+    fig.suptitle("Model Comparison: " + " vs ".join(t.upper() for t in MODEL_TAGS))
     fig.tight_layout()
     fig.savefig(os.path.join(RESULTS_DIR, "model_comparison.png"), dpi=150)
     plt.close(fig)
@@ -119,7 +122,7 @@ def plot_model_comparison():
 
 def generate_all_plots():
     """Generate every required plot."""
-    for tag in ["mlp", "lstm"]:
+    for tag in MODEL_TAGS:
         for appliance in TARGET_APPLIANCES:
             try:
                 plot_confusion_matrix(appliance, tag)

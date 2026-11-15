@@ -1,11 +1,11 @@
 """
 Baseline MLP model for NILM with BatchNorm.
 Input: flattened window + statistical features
-Output: ON/OFF probability + predicted appliance power
+Output: ON/OFF logit + predicted (normalized) appliance power
 """
-import torch
 import torch.nn as nn
 from src.config import WINDOW_SIZE, MLP_HIDDEN, DROPOUT, USE_STAT_FEATURES, N_STAT_FEATURES
+from src.models.weight_init import init_linear_relu
 
 
 class NILM_MLP(nn.Module):
@@ -22,20 +22,17 @@ class NILM_MLP(nn.Module):
             in_dim = h
         self.backbone = nn.Sequential(*layers)
 
-        # Classification head
         self.cls_head = nn.Sequential(
             nn.Linear(in_dim, 32),
             nn.ReLU(),
             nn.Linear(32, 1),
-            nn.Sigmoid(),
         )
-        # Regression head
         self.reg_head = nn.Sequential(
             nn.Linear(in_dim, 32),
             nn.ReLU(),
             nn.Linear(32, 1),
-            nn.ReLU(),
         )
+        init_linear_relu(self)
 
     def forward(self, x):
         features = self.backbone(x)
