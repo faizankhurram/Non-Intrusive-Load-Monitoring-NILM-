@@ -12,7 +12,7 @@ from sklearn.metrics import (
     accuracy_score, balanced_accuracy_score, f1_score,
     confusion_matrix, mean_absolute_error, mean_squared_error,
 )
-from src.config import BATCH_SIZE, RESULTS_DIR, DATA_SIGNATURE
+from src.config import BATCH_SIZE, METRICS_DIR, DATA_SIGNATURE
 
 
 def evaluate_model(model, test_ds, appliance_name: str, model_tag: str) -> dict:
@@ -71,14 +71,8 @@ def evaluate_model(model, test_ds, appliance_name: str, model_tag: str) -> dict:
     print(f"  ON samples: {metrics['on_samples']:,}  OFF samples: {metrics['off_samples']:,}")
 
     # Save to JSON
-    path = os.path.join(RESULTS_DIR, f"{model_tag}_{appliance_name}_metrics.json")
+    path = os.path.join(METRICS_DIR, f"{model_tag}_{appliance_name}_metrics.json")
     with open(path, "w") as f:
         json.dump(metrics, f, indent=2)
-
-    # Store predictions for plotting
-    pred_path = os.path.join(RESULTS_DIR, f"{model_tag}_{appliance_name}_preds.npz")
-    np.savez_compressed(pred_path,
-                        cls_true=cls_true, cls_pred=cls_pred,
-                        pow_true=pow_true, pow_pred=pow_pred)
 
     return metrics

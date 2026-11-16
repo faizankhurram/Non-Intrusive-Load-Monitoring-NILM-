@@ -14,8 +14,16 @@ PROCESSED_DIR = os.path.join(PROJECT_ROOT, "data", "processed")
 WINDOWS_DIR = os.path.join(PROJECT_ROOT, "data", "windows")
 MODELS_DIR = os.path.join(PROJECT_ROOT, "models")
 RESULTS_DIR = os.path.join(PROJECT_ROOT, "results")
+METRICS_DIR = os.path.join(RESULTS_DIR, "metrics")
+PLOT_DIRS = {
+    "confusion_matrix": os.path.join(RESULTS_DIR, "confusion_matrices"),
+    "curves": os.path.join(RESULTS_DIR, "training_curves"),
+    "class_metrics": os.path.join(RESULTS_DIR, "class_performance"),
+    "dynamics": os.path.join(RESULTS_DIR, "training_dynamics"),
+    "comparison": os.path.join(RESULTS_DIR, "model_comparison"),
+}
 
-for d in [PROCESSED_DIR, WINDOWS_DIR, MODELS_DIR, RESULTS_DIR]:
+for d in [PROCESSED_DIR, WINDOWS_DIR, MODELS_DIR, METRICS_DIR, *PLOT_DIRS.values()]:
     os.makedirs(d, exist_ok=True)
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,22 @@
+{
+  "appliance": "car1",
+  "model": "transformer",
+  "data_signature": "Austin|661,1642,2335,2361,2818,3456,4031,4373|car1,furnace1,refrigerator1|car1=1000.0,furnace1=300.0,refrigerator1=50.0|w60s5|aggregate=grid+solar|target=last",
+  "accuracy": 0.9889,
+  "balanced_accuracy": 0.8734,
+  "macro_f1": 0.9148,
+  "confusion_matrix": [
+    [
+      121117,
+      206
+    ],
+    [
+      1190,
+      3543
+    ]
+  ],
+  "power_mae": 50.82,
+  "power_rmse": 348.11,
+  "on_samples": 4733,
+  "off_samples": 121323
+}

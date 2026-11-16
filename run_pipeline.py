@@ -13,7 +13,7 @@ import json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from src.config import (
-    TARGET_APPLIANCES, SEED, MODELS_DIR, RESULTS_DIR, WINDOWS_DIR,
+    TARGET_APPLIANCES, SEED, MODELS_DIR, METRICS_DIR, WINDOWS_DIR,
     MODEL_TAGS, DATA_SIGNATURE,
 )
 from src.data_loader import load_and_filter, save_filtered, load_filtered
@@ -39,9 +39,13 @@ MODEL_CLASSES = {
 SIGNATURE_PATH = os.path.join(WINDOWS_DIR, "signature.txt")
 
 
+def _metrics_path(model_tag: str, appliance: str) -> str:
+    return os.path.join(METRICS_DIR, f"{model_tag}_{appliance}_metrics.json")
+
+
 def _model_done(model_tag: str, appliance: str) -> bool:
     """Check if a model has been fully trained and evaluated on the current data."""
-    metrics_path = os.path.join(RESULTS_DIR, f"{model_tag}_{appliance}_metrics.json")
+    metrics_path = _metrics_path(model_tag, appliance)
     model_path = os.path.join(MODELS_DIR, f"{model_tag}_{appliance}.pt")
     if not (os.path.exists(metrics_path) and os.path.exists(model_path)):
         return False
@@ -125,7 +129,7 @@ def main():
 
             if _model_done(model_tag, appliance):
                 # Already completed — load saved metrics
-                with open(os.path.join(RESULTS_DIR, f"{model_tag}_{appliance}_metrics.json")) as f:
+                with open(_metrics_path(model_tag, appliance)) as f:
                     metrics = json.load(f)
                 all_metrics.append(metrics)
                 print(f"\n  [{tag_upper}] {appliance}: already done (loaded saved results)")
