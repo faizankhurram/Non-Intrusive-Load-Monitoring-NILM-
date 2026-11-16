@@ -35,6 +35,8 @@ This runs the full pipeline: data loading, cleaning, labeling, splitting,
 windowing, training (4 models for 3 appliances), evaluation, and plot generation.
 Press Ctrl+C during training to pause; re-run to resume from the last checkpoint.
 
+To regenerate only the plots from saved metrics/histories: `python -m src.visualization`
+
 ## Project Structure
 
 ```
@@ -64,12 +66,19 @@ Press Ctrl+C during training to pause; re-run to resume from the last checkpoint
 ```
 
 ## Results
-After running the pipeline, check `results/` for:
-- Per-appliance benchmark metrics (JSON)
-- Confusion matrix heatmaps
-- Actual vs predicted power plots
-- Training loss / validation Macro-F1 curves
-- Model comparison chart with CCP benchmark lines
+After running the pipeline, `results/` contains one sub-folder per output type
+(file names are `{model}_{appliance}_...`):
+
+| Folder | Contents |
+|---|---|
+| `metrics/` | Test metrics JSON: Acc, BalAcc, Macro-F1, MAE, RMSE, confusion matrix |
+| `confusion_matrices/` | Confusion matrix heatmaps |
+| `class_performance/` | Row-normalized confusion matrix + per-class precision / recall / F1 |
+| `training_curves/` | Train/val loss with validation Macro-F1 |
+| `training_dynamics/` | Generalization gap, LR schedule, selected epoch and early stopping |
+| `model_comparison/` | All models vs the CCP minimum benchmarks |
+
+Training histories (`*_history.json`) and weights (`*.pt`) are saved in `models/`.
 
 ## Seed
 Random seed: **42** (set in `src/config.py`)

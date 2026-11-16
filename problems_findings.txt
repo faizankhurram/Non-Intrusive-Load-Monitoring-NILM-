@@ -671,4 +671,52 @@ ROOT CAUSE of the remaining failure:
   signal, so OFF periods where other small loads run look like fridge ON.
   ON is the majority class (61% train, 56% test).
 
+ARTIFACT RECOVERY after Problem #7:
+  Local models/ and results/ were restored from the pre-00:30 Drive zip
+  (6 finished models: all car1 + MLP/LSTM furnace1). The post-02:00
+  resume (GRU/Transformer furnace1 + all refrigerator1) had only the
+  terminal log, so metrics JSON and training histories were rebuilt
+  from that log; weights (.pt) and per-sample predictions (.npz) for
+  those 6 models remain unavailable. Power plots are therefore omitted
+  for every model until predictions exist for all of them. Confusion
+  matrices, training curves and the two new plot types below were
+  regenerated from the recovered metrics/histories.
+
+================================================================================
+
+IMPROVEMENT ROUND #5 — Results layout and new plots
+----------------------------------------------------
+
+  1. RESULTS FOLDER REORGANIZED (config.py, evaluate.py, visualization.py,
+     run_pipeline.py):
+       results/
+         metrics/              *_metrics.json
+         confusion_matrices/   raw count heatmaps
+         class_performance/    NEW plot type (see below)
+         training_curves/      train/val loss + val Macro-F1
+         training_dynamics/    NEW plot type (see below)
+         model_comparison/     Acc / BalAcc / Macro-F1 vs CCP minimum
+     Paths are created on import. Predictions / power-plot folders were
+     dropped so every model has the same plot set (per-sample preds were
+     incomplete after the Colab loss in Problem #7).
+
+  2. TWO NEW PER-MODEL PLOTS (final-year AI complexity):
+     a) class_performance — left: row-normalized confusion matrix
+        (each actual class sums to 100%, so ON and OFF errors are
+        comparable under imbalance); right: precision, recall and F1
+        of each class with a Macro-F1 reference line. Explains WHY
+        fridge Acc fails while BalAcc/F1 pass (false-ON rate on OFF).
+     b) training_dynamics — top: generalization gap (val − train loss)
+        per epoch (red = overfitting signal); bottom: warmup+cosine LR
+        schedule overlaid with val Macro-F1, the selected (best) epoch
+        and the early-stopping / no-improvement window. Ties model
+        selection to the training schedule.
+
+  3. MODEL COUNT stays at 4 (MLP, LSTM, GRU, Transformer) × 3 appliances
+     = 12 trainings. A brief 1D-CNN experiment was started then reverted;
+     MODEL_TAGS remains ["mlp", "lstm", "gru", "transformer"].
+
+OUTCOME:
+  Completed — layout and new plots in place for the existing 12 results.
+
 ================================================================================
