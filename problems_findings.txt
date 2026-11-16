@@ -44,7 +44,7 @@ DUE TO:
 
 WHAT WE TRIED:
   Multiple config changes to reduce total computation:
-  1. Reduced homes from 6 to 5 (minimum required by CCP).
+  1. Reduced homes from 6 to 5 (minimum required by the course brief).
   2. Added WINDOW_STEP=5 (sample every 5th window instead of every overlapping
      minute) — cuts training windows by ~5x, from ~1.83M to ~300K.
   3. Increased BATCH_SIZE from 256 to 1024 (fewer optimizer steps per epoch).
@@ -447,10 +447,10 @@ FINDINGS:
      21-31% of the time; cleaning clipped it to 0, erasing the daytime
      signal. Correct whole-house consumption = grid + solar + solar2.
   4. BUG — OFF-BY-ONE LABEL: windowing labelled the minute AFTER the
-     60-minute window. The CCP requires the label at the LAST time step
+     60-minute window. The course brief requires the label at the LAST time step
      inside the window.
   5. BUG — TIMESTAMP GAPS: missing minutes were never handled, so a
-     "60-reading" window could span hours. The CCP requires checking
+     "60-reading" window could span hours. The course brief requires checking
      continuity.
   6. Fridges vary a lot by home: 4767 and 8156 idle at 70-95W (above the
      50W threshold -> noisy labels); 1642's fridge is ON ~86% of the time.
@@ -495,7 +495,7 @@ DATA (config.py, data_cleaning.py, windowing.py, dataset.py):
      furnace1 200W -> 300W (fan-only ~200W readings were labelled ON),
      refrigerator1 50W.
   2. Homes: [661, 1642, 2335, 2361, 2818, 3456, 4031, 4373] (8 >= 5
-     required by CCP).
+     required by the course brief).
   3. aggregate = grid + solar + solar2 (solar columns now loaded; NaN
      solar treated as 0), then clipped at 0.
   4. Each home is reindexed onto a continuous 1-minute timeline; gaps up
@@ -530,7 +530,7 @@ TRAINING TECHNIQUE REVIEW (training.py, all models):
        Linear+ReLU layers; Xavier (input) / orthogonal (recurrent) for
        LSTM/GRU with LSTM forget-gate bias = 1; Xavier for Transformer.
     2. Classifier output bias = log(p/(1-p)) of the training ON ratio,
-       final-layer weights ~N(0, 0.01) (focal-loss paper prior init) —
+       final-layer weights ~N(0, 0.01) —
        stable start, no early collapse to one class.
     3. Models output logits; focal loss uses binary_cross_entropy_with_logits.
     4. No ReLU on the regression output (clipped to >=0 only at evaluation).
@@ -551,7 +551,7 @@ NEW MODELS (run_pipeline.py now trains 4 models per appliance):
      layers, ~25% fewer parameters; GRUs match LSTMs on short (60-step)
      sequences in the literature, so it should perform on the same scale.
   2. Transformer (src/models/transformer_model.py) — compact
-     BERT4NILM-style encoder:
+     Transformer encoder:
        Conv1d(kernel 5) embedding + learnable positional embedding,
        3 pre-LayerNorm encoder layers (d_model 64, 4 heads, FF 256,
        GELU, dropout 0.1), pooling = [last token, mean of all tokens],
@@ -565,8 +565,8 @@ NEW MODELS (run_pipeline.py now trains 4 models per appliance):
      train stably without long warmup, and the last-token pooling keeps
      the focus on the labelled final minute.
   3. visualization.py: training curves show val Macro-F1; the comparison
-     chart shows all 4 models with the CCP minimum lines.
-  4. Summary table prints PASS/FAIL against the CCP minimum.
+     chart shows all 4 models with the Min Benchmark lines.
+  4. Summary table prints PASS/FAIL against the Min Benchmark.
 
 VERIFICATION (local, before Colab):
   All files compile. An end-to-end smoke test on synthetic data (8 homes,
@@ -610,7 +610,7 @@ FOURTH COMPLETE RUN — RESULTS ANALYSIS (after Improvement Round #4)
 8 Austin homes, appliances car1 / furnace1 / refrigerator1, 4 models,
 30 epochs, model selection on validation Macro-F1, threshold 0.5.
 
-  Model        Appliance      Acc    BalAcc  MacF1   MAE(W)  RMSE(W)  CCP min
+  Model        Appliance      Acc    BalAcc  MacF1   MAE(W)  RMSE(W)  Min Bench
   MLP          car1           0.9743 0.6681  0.7415   92.42  471.69   FAIL
   LSTM         car1           0.9869 0.8400  0.8949   59.15  378.25   PASS
   GRU          car1           0.9894 0.8715  0.9172   54.50  353.42   PASS
@@ -654,7 +654,7 @@ Comparison vs Run 3:
   - furnace1: best F1 0.747 -> 0.856 (GRU), Acc 0.86 -> 0.93,
     MAE 123 -> 55 W. Data fixes + new training setup both contributed.
   - refrigerator1: best F1 0.681 -> 0.823 (Transformer), BalAcc
-    0.670 -> 0.821, Acc 0.748 -> 0.827. BalAcc and F1 now pass the CCP
+    0.670 -> 0.821, Acc 0.748 -> 0.827. BalAcc and F1 now pass the Min Benchmark
     minimum (and the higher target); only Acc is short of 0.85.
   - car1 (new, replaces air1): sequence models F1 0.89-0.92.
   - The sequence models beat the MLP everywhere (fridge F1 +0.05-0.06,
@@ -695,7 +695,7 @@ IMPROVEMENT ROUND #5 — Results layout and new plots
          class_performance/    NEW plot type (see below)
          training_curves/      train/val loss + val Macro-F1
          training_dynamics/    NEW plot type (see below)
-         model_comparison/     Acc / BalAcc / Macro-F1 vs CCP minimum
+         model_comparison/     Acc / BalAcc / Macro-F1 vs Min Benchmark
      Paths are created on import. Predictions / power-plot folders were
      dropped so every model has the same plot set (per-sample preds were
      incomplete after the Colab loss in Problem #7).

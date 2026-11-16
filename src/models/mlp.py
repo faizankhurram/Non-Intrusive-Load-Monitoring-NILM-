@@ -1,8 +1,4 @@
-"""
-Baseline MLP model for NILM with BatchNorm.
-Input: flattened window + statistical features
-Output: ON/OFF logit + predicted (normalized) appliance power
-"""
+"""Baseline MLP for NILM (flattened window + statistical features)."""
 import torch.nn as nn
 from src.config import WINDOW_SIZE, MLP_HIDDEN, DROPOUT, USE_STAT_FEATURES, N_STAT_FEATURES
 from src.models.weight_init import init_linear_relu

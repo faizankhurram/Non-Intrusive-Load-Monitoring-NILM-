@@ -1,12 +1,4 @@
-"""
-Weight initialization shared by all NILM models.
-
-  - Linear layers feeding ReLU: Kaiming (He) normal, zero bias
-  - Recurrent layers: Xavier for input weights, orthogonal for hidden weights,
-    zero bias; LSTM forget-gate bias set to 1
-  - Transformer layers: Xavier uniform (PyTorch's default for attention)
-  - Classification output bias: log-odds of the training ON ratio
-"""
+"""Shared weight initialization for NILM models."""
 import math
 import torch.nn as nn
 
@@ -44,7 +36,6 @@ def init_transformer(encoder: nn.Module):
 
 
 def init_output_bias(cls_head: nn.Sequential, on_ratio: float):
-    """Start the classifier at the training prior instead of p=0.5."""
     p = min(max(on_ratio, 1e-4), 1 - 1e-4)
     final = cls_head[-1]
     nn.init.normal_(final.weight, std=0.01)

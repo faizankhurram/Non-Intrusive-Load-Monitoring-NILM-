@@ -1,11 +1,4 @@
-"""
-Training loop with:
-  - Focal loss (on logits) for handling class imbalance
-  - Normalized power regression as an auxiliary loss
-  - AdamW, cosine annealing LR scheduler with warmup
-  - Model selection and early stopping on validation Macro-F1
-  - Checkpoint/resume support
-"""
+"""Training loop with focal loss, AdamW, early stopping, and checkpoint resume."""
 import os
 import json
 import signal
@@ -22,7 +15,6 @@ from src.config import (
 )
 from src.models.weight_init import init_output_bias
 
-# Global flag for graceful interruption
 _STOP_REQUESTED = False
 
 
@@ -40,7 +32,6 @@ def set_seed(seed=SEED):
 
 
 class FocalLoss(nn.Module):
-    """Focal loss for imbalanced binary classification, computed from logits."""
     def __init__(self, alpha=1.0, gamma=2.0):
         super().__init__()
         self.alpha = alpha
@@ -100,10 +91,6 @@ def load_checkpoint(model, optimizer, scheduler, model_tag, appliance_name):
 
 
 def train_model(model, train_ds, val_ds, appliance_name: str, model_tag: str):
-    """
-    Train a model with focal loss, LR scheduling, and checkpoint/resume.
-    Press Ctrl+C once to stop after the current epoch and save a checkpoint.
-    """
     global _STOP_REQUESTED
     _STOP_REQUESTED = False
     old_handler = signal.signal(signal.SIGINT, _handle_signal)
@@ -116,7 +103,6 @@ def train_model(model, train_ds, val_ds, appliance_name: str, model_tag: str):
     val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, shuffle=False,
                             num_workers=0, pin_memory=False)
 
-    # Compute class weight — use sqrt of ratio to prevent collapse
     labels = train_ds.y_class.numpy()
     n_on = labels.sum()
     n_off = len(labels) - n_on
@@ -166,7 +152,6 @@ def train_model(model, train_ds, val_ds, appliance_name: str, model_tag: str):
 
         current_lr = optimizer.param_groups[0]["lr"]
 
-        # ---- Training ----
         model.train()
         epoch_loss, epoch_cls = 0.0, 0.0
         n_batches = 0
@@ -193,7 +178,6 @@ def train_model(model, train_ds, val_ds, appliance_name: str, model_tag: str):
         if epoch > WARMUP_EPOCHS:
             scheduler.step()
 
-        # ---- Validation ----
         model.eval()
         val_loss_sum, val_cls_sum, val_batches = 0.0, 0.0, 0
         val_pred, val_true = [], []

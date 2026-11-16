@@ -1,13 +1,4 @@
-"""
-Clean the filtered dataset:
-  - Parse timestamps
-  - Sort by home + time
-  - Remove duplicates
-  - Reindex every home onto a continuous 1-minute timeline
-  - Forward-fill short gaps; longer gaps stay NaN (windows skip them)
-  - Build the whole-house aggregate: grid + solar + solar2
-  - Clip negative readings to zero, convert kW -> W
-"""
+"""Clean timestamps, fill short gaps, and build the whole-house aggregate."""
 import os
 import pandas as pd
 import numpy as np
@@ -27,7 +18,6 @@ def _reindex_home(home_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def clean(df: pd.DataFrame) -> pd.DataFrame:
-    """Full cleaning pipeline."""
     df = df.copy()
 
     df["localminute"] = pd.to_datetime(df["localminute"], utc=True)
@@ -37,7 +27,6 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     df = df.drop_duplicates(subset=["dataid", "localminute"], keep="first")
     print(f"[cleaning] Removed {before - len(df)} duplicate rows")
 
-    # Continuous 1-minute timeline per home so windows span exactly 60 minutes
     before = len(df)
     df = pd.concat([_reindex_home(h) for _, h in df.groupby("dataid")], ignore_index=True)
     print(f"[cleaning] Inserted {len(df) - before:,} missing minutes")
@@ -47,8 +36,6 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
         lambda s: s.ffill(limit=MAX_GAP_FILL)
     )
 
-    # Whole-house consumption: grid is net of solar generation, so add it back.
-    # Homes without solar have NaN solar columns -> treated as 0.
     solar = df[SOLAR_COLUMNS].fillna(0.0).sum(axis=1)
     df["aggregate"] = (df["grid"] + solar).clip(lower=0.0)
 
@@ -59,7 +46,6 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     for col in TARGET_APPLIANCES:
         df[col] = df[col].fillna(0.0).clip(lower=0.0)
 
-    # Data is in kW – convert to watts
     for col in ["aggregate"] + TARGET_APPLIANCES:
         df[col] = df[col] * 1000.0
 

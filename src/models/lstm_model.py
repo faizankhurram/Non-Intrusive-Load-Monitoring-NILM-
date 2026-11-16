@@ -1,7 +1,4 @@
-"""
-LSTM model for NILM (LayerNorm on the last hidden state, stat features
-concatenated before the heads). See recurrent_base.py.
-"""
+"""LSTM model for NILM."""
 import torch.nn as nn
 from src.models.recurrent_base import RecurrentNILM
 

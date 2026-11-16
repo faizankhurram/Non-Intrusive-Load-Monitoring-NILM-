@@ -17,7 +17,7 @@ The raw CSV must be at `1minute_data_austin/1minute_data_austin.csv`.
 - **MLP**: Baseline feedforward neural network
 - **LSTM**: 2-layer recurrent network
 - **GRU**: 2-layer recurrent network (same structure as the LSTM)
-- **Transformer**: Compact BERT4NILM-style encoder (conv embedding + 3 self-attention layers)
+- **Transformer**: Compact encoder (conv embedding + 3 self-attention layers)
 
 ## Setup
 
@@ -76,7 +76,7 @@ After running the pipeline, `results/` contains one sub-folder per output type
 | `class_performance/` | Row-normalized confusion matrix + per-class precision / recall / F1 |
 | `training_curves/` | Train/val loss with validation Macro-F1 |
 | `training_dynamics/` | Generalization gap, LR schedule, selected epoch and early stopping |
-| `model_comparison/` | All models vs the CCP minimum benchmarks |
+| `model_comparison/` | All models vs the Min Benchmark lines |
 
 Training histories (`*_history.json`) and weights (`*.pt`) are saved in `models/`.
 

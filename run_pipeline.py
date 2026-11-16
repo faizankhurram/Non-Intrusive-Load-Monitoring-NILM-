@@ -9,18 +9,17 @@ import sys
 import os
 import json
 
-# Ensure project root is on path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from src.config import (
-    TARGET_APPLIANCES, SEED, MODELS_DIR, METRICS_DIR, WINDOWS_DIR,
+    TARGET_APPLIANCES, MODELS_DIR, METRICS_DIR, WINDOWS_DIR,
     MODEL_TAGS, DATA_SIGNATURE,
 )
-from src.data_loader import load_and_filter, save_filtered, load_filtered
-from src.data_cleaning import clean, save_cleaned, load_cleaned
+from src.data_loader import load_and_filter, save_filtered
+from src.data_cleaning import clean, save_cleaned
 from src.labeling import compute_thresholds, apply_labels, print_label_stats
 from src.splitting import chronological_split
-from src.windowing import create_windows, save_windows, load_windows
+from src.windowing import create_windows, save_windows
 from src.dataset import build_datasets
 from src.models.mlp import NILM_MLP
 from src.models.lstm_model import NILM_LSTM
@@ -82,7 +81,6 @@ def main():
     print("NILM ANN Project - Full Pipeline")
     print("=" * 60)
 
-    # Steps 1-5: Data preparation (skip if windows already cached)
     if _windows_exist():
         print("\n[resume] Windowed data found — skipping data preparation steps 1-5")
     else:
@@ -112,7 +110,6 @@ def main():
         with open(SIGNATURE_PATH, "w") as f:
             f.write(DATA_SIGNATURE)
 
-    # Step 6: Train and evaluate models for each appliance
     all_metrics = []
     paused = False
 
@@ -128,7 +125,6 @@ def main():
             tag_upper = model_tag.upper()
 
             if _model_done(model_tag, appliance):
-                # Already completed — load saved metrics
                 with open(_metrics_path(model_tag, appliance)) as f:
                     metrics = json.load(f)
                 all_metrics.append(metrics)
@@ -155,11 +151,9 @@ def main():
     if paused:
         return
 
-    # Step 7: Generate all plots
     print("\n--- Step 7: Generating plots ---")
     generate_all_plots()
 
-    # Step 8: Print summary table
     print("\n" + "=" * 80)
     print("BENCHMARK RESULTS SUMMARY")
     print("=" * 80)
@@ -173,7 +167,7 @@ def main():
               f"{m['balanced_accuracy']:>8.4f} {m['macro_f1']:>8.4f} "
               f"{m['power_mae']:>8.2f} {m['power_rmse']:>8.2f}  "
               f"{'PASS' if passed else 'FAIL'}")
-    print("Benchmark = Acc>=0.85, BalAcc>=0.75, Macro-F1>=0.70 (CCP minimum)")
+    print("Min Benchmark = Acc>=0.85, BalAcc>=0.75, Macro-F1>=0.70")
 
     print("\nPipeline complete.")
 

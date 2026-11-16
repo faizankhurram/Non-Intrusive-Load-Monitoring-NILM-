@@ -1,18 +1,10 @@
-"""
-Create ON/OFF labels for each appliance using thresholds derived
-from domain knowledge and validated against training data.
-"""
+"""ON/OFF labeling from fixed appliance power thresholds."""
 import numpy as np
 import pandas as pd
 from src.config import TARGET_APPLIANCES, DEFAULT_THRESHOLDS
 
 
 def compute_thresholds(train_df: pd.DataFrame) -> dict:
-    """
-    Return ON/OFF thresholds (watts) for each appliance.
-    Uses fixed domain-knowledge thresholds tuned to the bimodal power
-    distributions observed in the Pecan Street Austin data.
-    """
     thresholds = dict(DEFAULT_THRESHOLDS)
 
     for appliance in TARGET_APPLIANCES:
@@ -30,7 +22,6 @@ def compute_thresholds(train_df: pd.DataFrame) -> dict:
 
 
 def apply_labels(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
-    """Add binary ON/OFF label columns for each appliance."""
     df = df.copy()
     for appliance in TARGET_APPLIANCES:
         label_col = f"{appliance}_label"
@@ -40,7 +31,6 @@ def apply_labels(df: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
 
 
 def print_label_stats(df: pd.DataFrame, split_name: str = ""):
-    """Print ON/OFF counts for each appliance."""
     prefix = f"[{split_name}] " if split_name else ""
     for appliance in TARGET_APPLIANCES:
         label_col = f"{appliance}_label"

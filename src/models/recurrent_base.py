@@ -1,8 +1,4 @@
-"""
-Shared architecture for the recurrent NILM models (LSTM and GRU).
-Input: sequence of whole-house power + statistical features
-Output: ON/OFF logit + predicted (normalized) appliance power
-"""
+"""Shared LSTM / GRU architecture for NILM."""
 import torch
 import torch.nn as nn
 from src.config import (
@@ -46,7 +42,6 @@ class RecurrentNILM(nn.Module):
         init_recurrent(self.rnn)
 
     def forward(self, x):
-        # x: (batch, WINDOW_SIZE + n_stat); the label is at the last timestep
         seq = x[:, :self.seq_len].unsqueeze(-1)
         out, _ = self.rnn(seq)
         last_hidden = self.dropout(self.layer_norm(out[:, -1, :]))

@@ -1,8 +1,4 @@
-"""
-Evaluate a trained model on the test set.
-Reports: Accuracy, Balanced Accuracy, Macro-F1, Confusion Matrix,
-         MAE, RMSE for power prediction.
-"""
+"""Evaluate a trained model on the test set and save metrics."""
 import json
 import os
 import numpy as np
@@ -16,7 +12,6 @@ from src.config import BATCH_SIZE, METRICS_DIR, DATA_SIGNATURE
 
 
 def evaluate_model(model, test_ds, appliance_name: str, model_tag: str) -> dict:
-    """Run evaluation and return metrics dict."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device).eval()
 
@@ -36,7 +31,6 @@ def evaluate_model(model, test_ds, appliance_name: str, model_tag: str) -> dict:
     cls_pred_prob = np.concatenate(all_cls_pred)
     cls_true = np.concatenate(all_cls_true).astype(int)
     cls_pred = (cls_pred_prob >= 0.5).astype(int)
-    # Regression targets are normalized by the training power scale; back to watts
     pow_pred = np.clip(np.concatenate(all_pow_pred) * test_ds.power_scale, 0, None)
     pow_true = np.concatenate(all_pow_true) * test_ds.power_scale
 
@@ -70,7 +64,6 @@ def evaluate_model(model, test_ds, appliance_name: str, model_tag: str) -> dict:
     print(f"  Confusion Matrix:  {cm.tolist()}")
     print(f"  ON samples: {metrics['on_samples']:,}  OFF samples: {metrics['off_samples']:,}")
 
-    # Save to JSON
     path = os.path.join(METRICS_DIR, f"{model_tag}_{appliance_name}_metrics.json")
     with open(path, "w") as f:
         json.dump(metrics, f, indent=2)

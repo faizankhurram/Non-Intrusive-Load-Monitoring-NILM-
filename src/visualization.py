@@ -1,11 +1,4 @@
-"""
-Generate all required plots (one sub-folder of results/ per plot type):
-  - Confusion matrices
-  - Training loss curves
-  - Per-class performance (normalized confusion matrix + precision/recall/F1)
-  - Training dynamics (generalization gap, LR schedule, early stopping)
-  - Model comparison bar charts
-"""
+"""Plot generation for metrics, training histories, and model comparison."""
 import os
 import json
 import numpy as np
@@ -33,7 +26,6 @@ def _load_json(path: str) -> dict:
 
 
 def plot_confusion_matrix(appliance: str, model_tag: str):
-    """Plot and save confusion matrix heatmap."""
     cm = np.array(_load_json(_metrics_path(model_tag, appliance))["confusion_matrix"])
 
     fig, ax = plt.subplots(figsize=(5, 4))
@@ -49,7 +41,6 @@ def plot_confusion_matrix(appliance: str, model_tag: str):
 
 
 def plot_training_curves(appliance: str, model_tag: str):
-    """Plot training and validation loss curves."""
     history = _load_json(_history_path(model_tag, appliance))
 
     fig, ax = plt.subplots(figsize=(8, 4))
@@ -76,11 +67,6 @@ def plot_training_curves(appliance: str, model_tag: str):
 
 
 def plot_class_performance(appliance: str, model_tag: str):
-    """
-    Left: confusion matrix normalized per actual class (each row sums to 100%),
-    so OFF and ON errors are comparable despite class imbalance.
-    Right: precision, recall and F1 of each class; their mean F1 is the Macro-F1.
-    """
     metrics = _load_json(_metrics_path(model_tag, appliance))
     cm = np.array(metrics["confusion_matrix"], dtype=float)
     (tn, fp), (fn, tp) = cm
@@ -130,11 +116,6 @@ def plot_class_performance(appliance: str, model_tag: str):
 
 
 def plot_training_dynamics(appliance: str, model_tag: str):
-    """
-    Top: generalization gap (val loss - train loss) per epoch.
-    Bottom: learning-rate schedule (warmup + cosine) with validation Macro-F1,
-    the selected (best) epoch and the early-stopping patience window.
-    """
     history = _load_json(_history_path(model_tag, appliance))
     train = np.array(history["train_loss"])
     val = np.array(history["val_loss"])
@@ -182,7 +163,6 @@ def plot_training_dynamics(appliance: str, model_tag: str):
 
 
 def plot_model_comparison():
-    """Bar chart comparing all models that have metrics for every appliance."""
     tags = [tag for tag in MODEL_TAGS
             if all(os.path.exists(_metrics_path(tag, a)) for a in TARGET_APPLIANCES)]
     if not tags:
@@ -204,7 +184,7 @@ def plot_model_comparison():
             offset = (i - (len(tags) - 1) / 2) * width
             ax.bar(x + offset, vals, width, label=tag.upper())
         ax.axhline(minimums[metric], color="red", linestyle="--", linewidth=1,
-                   label="CCP minimum")
+                   label="Min Benchmark")
         ax.set_ylabel(metric.replace("_", " ").title())
         ax.set_xticks(x)
         ax.set_xticklabels(TARGET_APPLIANCES, rotation=15)
@@ -218,7 +198,6 @@ def plot_model_comparison():
 
 
 def generate_all_plots():
-    """Generate every required plot."""
     for tag in MODEL_TAGS:
         for appliance in TARGET_APPLIANCES:
             if not os.path.exists(_metrics_path(tag, appliance)):

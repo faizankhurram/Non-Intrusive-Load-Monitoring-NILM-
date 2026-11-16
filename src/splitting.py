@@ -1,20 +1,9 @@
-"""
-Chronological train / validation / test splitting.
-Every home is split chronologically — no full-home holdout, so that
-the test set has representative appliance distributions from all homes.
-"""
+"""Chronological train / validation / test split per home."""
 import pandas as pd
-from src.config import (
-    TRAIN_RATIO, VAL_RATIO, SELECTED_HOMES
-)
+from src.config import TRAIN_RATIO, VAL_RATIO, SELECTED_HOMES
 
 
 def chronological_split(df: pd.DataFrame) -> dict:
-    """
-    Split data chronologically per home.
-    Every home contributes to train, val, and test.
-    Returns dict with keys 'train', 'val', 'test'.
-    """
     train_parts, val_parts, test_parts = [], [], []
 
     for home_id in SELECTED_HOMES:

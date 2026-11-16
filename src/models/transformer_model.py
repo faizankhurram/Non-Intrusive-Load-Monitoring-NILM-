@@ -1,12 +1,4 @@
-"""
-Transformer encoder for NILM (compact BERT4NILM-style design).
-  - Conv1d token embedding: gives attention a local prior for ON/OFF edges
-  - Learnable positional embedding
-  - Pre-LayerNorm encoder layers (stable without long warmup)
-  - Pooling: last token (the labelled minute) concatenated with mean pooling
-Input: sequence of whole-house power + statistical features
-Output: ON/OFF logit + predicted (normalized) appliance power
-"""
+"""Transformer encoder for NILM."""
 import torch
 import torch.nn as nn
 from src.config import (
@@ -33,8 +25,9 @@ class NILM_Transformer(nn.Module):
             batch_first=True,
             norm_first=True,
         )
-        self.encoder = nn.TransformerEncoder(layer, num_layers=TF_LAYERS,
-                                             enable_nested_tensor=False)
+        self.encoder = nn.TransformerEncoder(
+            layer, num_layers=TF_LAYERS, enable_nested_tensor=False
+        )
         self.norm = nn.LayerNorm(TF_D_MODEL)
         self.dropout = nn.Dropout(TF_DROPOUT)
 
@@ -56,8 +49,8 @@ class NILM_Transformer(nn.Module):
         nn.init.trunc_normal_(self.pos_embed, std=0.02)
 
     def forward(self, x):
-        seq = x[:, :self.seq_len].unsqueeze(1)                 # (B, 1, L)
-        tokens = self.embed(seq).transpose(1, 2) + self.pos_embed  # (B, L, D)
+        seq = x[:, :self.seq_len].unsqueeze(1)
+        tokens = self.embed(seq).transpose(1, 2) + self.pos_embed
         h = self.norm(self.encoder(tokens))
         pooled = self.dropout(torch.cat([h[:, -1, :], h.mean(dim=1)], dim=1))
 
